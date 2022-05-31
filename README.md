@@ -2,6 +2,8 @@
 The memory allocater/manager for my game engine and openvk
 
 ```C
+#include "CMA.h"
+
 typedef struct
 {
   int var;
