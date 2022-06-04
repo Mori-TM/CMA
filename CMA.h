@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 /*
+* This shows how CMA manages memory
 * _________________________
 * | Block | Curr. | Curr. |
 * |	One	is| Unused| Unused|
