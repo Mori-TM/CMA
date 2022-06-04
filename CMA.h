@@ -3,7 +3,20 @@
 #include <string.h>
 #include <stdint.h>
 
+/*
+* _________________________
+* | Block | Curr. | Curr. |
+* |	One	is| Unused| Unused|
+* |	Free  |		  |		  |
+* |_______|_______|_______|
+* _________________________________
+* | Data1 | Empty | Data2 | Curr. |
+* |		  |		  |		  | Unused|
+* |_______|_______|_______|_______|
+*/
 #define CMA_ZONE_SIZE 128
+#define CMA_FREE_SIZE 64
+//#define CMA_BACKWARDS_REPUSHING
 
 typedef struct
 {
@@ -11,6 +24,10 @@ typedef struct
 	size_t DataSize;
 	size_t AllocateSize;
 	void* Data;
+
+	size_t FreeBlockSize;
+	size_t FreeAllocateSize;
+	char* FreeBlocks;
 } CMA_MemoryZone;
 
 char ICMA_IsFree(CMA_MemoryZone* Zone, size_t Index)
@@ -35,12 +52,26 @@ CMA_MemoryZone CMA_Create(size_t DataSize)
 	for (size_t i = 0; i < CMA_ZONE_SIZE; i++)
 		ICMA_SetFree(&Zone, i, 1);
 
+	Zone.FreeBlockSize = 0;
+	Zone.FreeAllocateSize = CMA_FREE_SIZE;
+	Zone.FreeBlocks = (char*)calloc(1, CMA_FREE_SIZE);
+
 	return Zone;
 }
 
 void CMA_Destroy(CMA_MemoryZone* Zone)
 {
 	free(Zone->Data);
+	free(Zone->FreeBlocks);
+
+	Zone->Size = 0;
+	Zone->DataSize = 0;
+	Zone->AllocateSize = 0;
+	Zone->Data = NULL;
+
+	Zone->FreeBlockSize = 0;
+	Zone->FreeAllocateSize = 0;
+	Zone->FreeBlocks = NULL;
 }
 
 size_t CMA_Push(CMA_MemoryZone* Zone, void* Data)
@@ -56,14 +87,25 @@ size_t CMA_Push(CMA_MemoryZone* Zone, void* Data)
 
 	size_t Index = Zone->Size;
 
-	for (size_t i = 0; i < Zone->Size; i++)
+#ifdef CMA_BACKWARDS_REPUSHING
+	if (Zone->FreeBlockSize > 0)
 	{
-		if (ICMA_IsFree(Zone, i))
-		{
-			Index = i;
-			break;
-		}
+		Index = Zone->FreeBlocks[Zone->FreeBlockSize - 1];
+		Zone->FreeBlockSize--;
 	}
+
+#else 
+	for (size_t i = 0; i < Zone->FreeBlockSize; i++)
+	{
+		Index = Zone->FreeBlocks[i];
+		Zone->FreeBlockSize--;
+		for (size_t j = i; j < Zone->FreeBlockSize; j++)
+			Zone->FreeBlocks[j] = Zone->FreeBlocks[j + 1];
+	}
+#endif
+
+
+
 
 	char* TempData = (char*)Zone->Data + ((Zone->DataSize + 1) * Index);
 	memcpy(TempData, Data, Zone->DataSize);
@@ -83,9 +125,17 @@ void* CMA_GetAt(CMA_MemoryZone* Zone, size_t Index)
 
 void CMA_Pop(CMA_MemoryZone* Zone, size_t Index)
 {
+	if (Zone->FreeBlockSize >= Zone->FreeAllocateSize)
+	{
+		Zone->FreeAllocateSize += CMA_FREE_SIZE;
+		Zone->FreeBlocks = (char*)realloc(Zone->FreeBlocks, Zone->FreeAllocateSize);
+	}
+
 	char* TempData = (char*)Zone->Data + ((Zone->DataSize + 1) * Index);
 	memset(TempData, 0, Zone->DataSize);
 	ICMA_SetFree(Zone, Index, 1);
+	Zone->FreeBlocks[Zone->FreeBlockSize] = Index;
+	Zone->FreeBlockSize++;
 
 	for (uint32_t i = Zone->Size - 1; i > 0; i--)
 	{
