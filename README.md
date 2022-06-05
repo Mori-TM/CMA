@@ -1,4 +1,6 @@
 # CMA
+In this version all arrays will always have the same memory address
+this makes it slower than the main version.
 The memory allocater/manager for my game engine and openvk
 
 ```C
