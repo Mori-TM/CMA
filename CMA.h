@@ -138,7 +138,7 @@ void CMA_Pop(CMA_MemoryZone* Zone, size_t Index)
 	Zone->FreeBlocks[Zone->FreeBlockSize] = Index;
 	Zone->FreeBlockSize++;
 
-	for (uint32_t i = Zone->Size - 1; i > 0; i--)
+	for (size_t i = Zone->Size - 1; i > 0; i--)
 	{
 		if (!ICMA_IsFree(Zone, i))
 			break;
