@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #define CMA_BLOCK_SIZE 128
+#define CMA_MAX_GARBAGE_COUNT 4
 
 typedef enum
 {
@@ -25,6 +26,7 @@ typedef struct
 	size_t AllocateSize;
 	size_t MemSize;
 	CMA_Memory* Mem;
+	size_t GarbageCount;
 } CMA_MemoryZone;
 
 void ICMA_Resize(size_t Start, CMA_MemoryZone* Zone)
@@ -44,14 +46,16 @@ CMA_MemoryZone CMA_Create(size_t Size)
 	Zone.MemSize = Size;
 	Zone.Mem = (CMA_Memory*)malloc(CMA_BLOCK_SIZE * sizeof(CMA_Memory));
 	ICMA_Resize(0, &Zone);
+	Zone.GarbageCount = 0;
 	return Zone;
 }
 
 void CMA_Destroy(CMA_MemoryZone* Zone)
 {
-	for (size_t i = 0; i < Zone->Size; i++)
+	for (size_t i = 0; i < Zone->AllocateSize; i++)
 	{
-		free(Zone->Mem[i].Data);
+		if (Zone->Mem[i].State & ICMA_DATA_STATE_ALLOCATED)
+			free(Zone->Mem[i].Data);
 		Zone->Mem[i].Data = NULL;
 		Zone->Mem[i].State = 0;
 	}
@@ -59,6 +63,7 @@ void CMA_Destroy(CMA_MemoryZone* Zone)
 	Zone->Mem = NULL;
 	Zone->Size = 0;
 	Zone->AllocateSize = 0;
+	Zone->GarbageCount = 0;
 }
 
 size_t CMA_Push(CMA_MemoryZone* Zone, void* Data)
@@ -135,4 +140,13 @@ void CMA_Pop(CMA_MemoryZone* Zone, size_t Index)
 		Zone->Mem[i].State = ICMA_DATA_STATE_UNUSED | ICMA_DATA_STATE_UNALLOCATED;
 		Zone->Size--;
 	}
+
+	if (Zone->GarbageCount >= CMA_MAX_GARBAGE_COUNT)
+	{
+		Zone->GarbageCount = 0;
+		Zone->AllocateSize = Zone->Size;
+		Zone->Mem = (CMA_Memory*)realloc(Zone->Mem, Zone->AllocateSize * sizeof(CMA_Memory));
+	}	
+
+	Zone->GarbageCount++;
 }
