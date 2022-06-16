@@ -34,7 +34,7 @@ void ICMA_Resize(size_t Start, CMA_MemoryZone* Zone)
 	for (size_t i = Start; i < Zone->AllocateSize; i++)
 	{
 		Zone->Mem[i].Data = malloc(Zone->MemSize);
-		Zone->Mem[i].State = ICMA_DATA_STATE_UNUSED | ICMA_DATA_STATE_ALLOCATED;		
+		Zone->Mem[i].State = ICMA_DATA_STATE_UNUSED | ICMA_DATA_STATE_ALLOCATED;
 	}
 }
 
@@ -70,6 +70,7 @@ size_t CMA_Push(CMA_MemoryZone* Zone, void* Data)
 {
 	if (Zone->Size >= Zone->AllocateSize)
 	{
+	//	printf("wtf\n");
 		Zone->Mem = (CMA_Memory*)realloc(Zone->Mem, (Zone->AllocateSize + CMA_BLOCK_SIZE) * sizeof(CMA_Memory));
 		Zone->AllocateSize += CMA_BLOCK_SIZE;
 		ICMA_Resize(Zone->AllocateSize - CMA_BLOCK_SIZE, Zone);
@@ -78,7 +79,7 @@ size_t CMA_Push(CMA_MemoryZone* Zone, void* Data)
 
 	for (size_t i = 0; i < Zone->Size; i++)
 	{
-		if (Zone->Mem[i].State & ICMA_DATA_STATE_UNUSED && 
+		if (Zone->Mem[i].State & ICMA_DATA_STATE_UNUSED &&
 			Zone->Mem[i].State & ICMA_DATA_STATE_ALLOCATED)
 		{
 			Zone->Mem[i].State = ICMA_DATA_STATE_USED | ICMA_DATA_STATE_ALLOCATED;
@@ -86,7 +87,7 @@ size_t CMA_Push(CMA_MemoryZone* Zone, void* Data)
 			return i;
 		}
 		else if (Zone->Mem[i].State & ICMA_DATA_STATE_UNUSED &&
-				 Zone->Mem[i].State & ICMA_DATA_STATE_UNALLOCATED)
+			Zone->Mem[i].State & ICMA_DATA_STATE_UNALLOCATED)
 		{
 			Zone->Mem[i].State = ICMA_DATA_STATE_USED | ICMA_DATA_STATE_ALLOCATED;
 			Zone->Mem[i].Data = malloc(Zone->MemSize);
@@ -102,7 +103,7 @@ size_t CMA_Push(CMA_MemoryZone* Zone, void* Data)
 		memcpy(Zone->Mem[Zone->Size].Data, Data, Zone->MemSize);
 	}
 	else if (Zone->Mem[Zone->Size].State & ICMA_DATA_STATE_UNUSED &&
-			 Zone->Mem[Zone->Size].State & ICMA_DATA_STATE_UNALLOCATED)
+		Zone->Mem[Zone->Size].State & ICMA_DATA_STATE_UNALLOCATED)
 	{
 		Zone->Mem[Zone->Size].State = ICMA_DATA_STATE_USED | ICMA_DATA_STATE_ALLOCATED;
 		Zone->Mem[Zone->Size].Data = malloc(Zone->MemSize);
@@ -120,7 +121,7 @@ size_t CMA_GetSize(CMA_MemoryZone* Zone)
 
 void* CMA_GetAt(CMA_MemoryZone* Zone, size_t Index)
 {
-	if (Zone->Mem != NULL && Zone->Mem[Index].State & ICMA_DATA_STATE_USED)
+	if (Zone->Mem != NULL && Index < Zone->Size && Zone->Mem[Index].State & ICMA_DATA_STATE_USED)
 		return Zone->Mem[Index].Data;
 
 	return NULL;
@@ -146,7 +147,7 @@ void CMA_Pop(CMA_MemoryZone* Zone, size_t Index)
 		Zone->GarbageCount = 0;
 		Zone->AllocateSize = Zone->Size;
 		Zone->Mem = (CMA_Memory*)realloc(Zone->Mem, Zone->AllocateSize * sizeof(CMA_Memory));
-	}	
+	}
 
 	Zone->GarbageCount++;
 }
